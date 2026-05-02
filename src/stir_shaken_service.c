@@ -204,9 +204,17 @@ stir_shaken_status_t stir_shaken_make_http_req_real(stir_shaken_context_t *ss, s
 
 	if (strlen(http_req->url) > 5 && (!strncmp(http_req->url, "https", 5) || !strncmp(http_req->url, "HTTPS", 5))) {
 		use_https = 1;
+#if LIBCURL_VERSION_NUM >= 0x075500
+		curl_easy_setopt(curl_handle, CURLOPT_PROTOCOLS_STR, "https");
+#else
 		curl_easy_setopt(curl_handle, CURLOPT_PROTOCOLS, CURLPROTO_HTTPS);
+#endif
 	} else {
+#if LIBCURL_VERSION_NUM >= 0x075500
+		curl_easy_setopt(curl_handle, CURLOPT_PROTOCOLS_STR, "http");
+#else
 		curl_easy_setopt(curl_handle, CURLOPT_PROTOCOLS, CURLPROTO_HTTP);
+#endif
 	}
 
 	if (http_req->remote_port > 0) {
@@ -806,6 +814,22 @@ char* stir_shaken_as_authenticate_to_sih(struct stir_shaken_context_s *ss, stir_
 		return NULL;
 	}
 	return stir_shaken_authenticate_to_sih_with_key(ss, params, passport_out, as->keys.priv_raw, as->keys.priv_raw_len);
+}
+
+char *stir_shaken_as_div_authenticate_to_sih(struct stir_shaken_context_s *ss, stir_shaken_as_t *as, stir_shaken_div_passport_params_t *params, stir_shaken_passport_t **passport_out)
+{
+	char *sih = NULL;
+
+	if (!as) {
+		stir_shaken_set_error(ss, "Authentication service missing", STIR_SHAKEN_ERROR_AS_MISSING_3);
+		return NULL;
+	}
+
+	if (STIR_SHAKEN_STATUS_OK != stir_shaken_div_authenticate_keep_passport(ss, &sih, params, as->keys.priv_raw, as->keys.priv_raw_len, passport_out)) {
+		return NULL;
+	}
+
+	return sih;
 }
 
 stir_shaken_status_t stir_shaken_as_install_cert(struct stir_shaken_context_s *ss, stir_shaken_as_t *as, const char *where)

@@ -55,6 +55,12 @@ extern "C" {
 
 #define STIR_SHAKEN_DIGEST_NAME "sha256"
 
+#define STIR_SHAKEN_PPT_SHAKEN "shaken"
+#define STIR_SHAKEN_PPT_DIV "div"
+
+#define STIR_SHAKEN_DIV_FLAG_INCLUDE_REASON 0x01
+#define STIR_SHAKEN_DIV_FLAG_INCLUDE_SHAKEN_CLAIMS 0x02
+
 #define STIR_SHAKEN_MOCK_VERIFY_CERT_CHAIN 0
 #define STIR_SHAKEN_LOAD_CA_FROM_DEFAULT_OS_PATHS 0
 #define STIR_SHAKEN_CERT_ADD_SIGNALWIRE_EXTENSION 1
@@ -867,6 +873,34 @@ typedef struct stir_shaken_passport_params_s {
 
 void stir_shaken_passport_params_destroy(stir_shaken_passport_params_t *params);
 
+typedef struct stir_shaken_div_passport_params_s {
+	const char *x5u;
+	const char *orig_key;
+	const char *orig_val;
+	const char *dest_key;
+	const char **dest_vals;
+	uint32_t dest_vals_count;
+	const char *div_key;
+	const char *div_val;
+	uint32_t iat;
+	const char *hi;
+	const char *reason;
+	const char *attest;
+	const char *origid;
+	uint32_t flags;
+} stir_shaken_div_passport_params_t;
+
+typedef struct stir_shaken_parsed_identity_s {
+	char *passport_token;
+	char *info;
+	char *alg;
+	char *ppt;
+} stir_shaken_parsed_identity_t;
+
+void stir_shaken_div_passport_params_destroy(stir_shaken_div_passport_params_t *params);
+stir_shaken_status_t stir_shaken_sih_parse(stir_shaken_context_t *ss, const char *sih, stir_shaken_parsed_identity_t *out);
+void stir_shaken_sih_parse_destroy(stir_shaken_parsed_identity_t *parsed);
+
 /**
  * The Personal Assertion Token, PASSporT: https://tools.ietf.org/html/rfc8225.
  * PASSporT implementation wrapping @jwt.
@@ -904,6 +938,16 @@ void stir_shaken_passport_params_destroy(stir_shaken_passport_params_t *params);
 typedef struct stir_shaken_passport {
 	jwt_t *jwt; // PASSport JSON Web Token
 } stir_shaken_passport_t;
+
+stir_shaken_status_t stir_shaken_passport_decode_noverify(stir_shaken_context_t *ss, const char *passport_token, stir_shaken_passport_t **passport_out);
+stir_shaken_passport_t *stir_shaken_div_passport_create(stir_shaken_context_t *ss, stir_shaken_div_passport_params_t *params, unsigned char *key, uint32_t keylen);
+stir_shaken_status_t stir_shaken_div_authenticate_keep_passport(stir_shaken_context_t *ss, char **sih, stir_shaken_div_passport_params_t *params, unsigned char *key, uint32_t keylen, stir_shaken_passport_t **passport_out);
+stir_shaken_status_t stir_shaken_div_authenticate(stir_shaken_context_t *ss, char **sih, stir_shaken_div_passport_params_t *params, unsigned char *key, uint32_t keylen);
+stir_shaken_status_t stir_shaken_div_params_from_original_sih(stir_shaken_context_t *ss, const char *original_sih, const char *div_x5u, const char *new_dest_key, const char **new_dest_vals, uint32_t new_dest_vals_count, const char *selected_original_dest_key, const char *selected_original_dest_val, uint32_t flags, stir_shaken_div_passport_params_t *out);
+stir_shaken_status_t stir_shaken_div_passport_validate_headers(stir_shaken_context_t *ss, stir_shaken_passport_t *passport);
+stir_shaken_status_t stir_shaken_div_passport_validate_grants(stir_shaken_context_t *ss, stir_shaken_passport_t *passport);
+stir_shaken_status_t stir_shaken_div_passport_validate_headers_and_grants(stir_shaken_context_t *ss, stir_shaken_passport_t *passport);
+stir_shaken_status_t stir_shaken_div_validate_chain_claims(stir_shaken_context_t *ss, stir_shaken_passport_t *original, stir_shaken_passport_t *div);
 
 stir_shaken_status_t stir_shaken_passport_jwt_init(stir_shaken_context_t *ss, jwt_t *jwt, stir_shaken_passport_params_t *params, unsigned char *key, uint32_t keylen);
 jwt_t* stir_shaken_passport_jwt_create_new(stir_shaken_context_t *ss);
@@ -1332,6 +1376,7 @@ char* stir_shaken_authenticate_to_passport_with_key(struct stir_shaken_context_s
 char* stir_shaken_as_authenticate_to_passport(struct stir_shaken_context_s *ss, stir_shaken_as_t *as, stir_shaken_passport_params_t *params, stir_shaken_passport_t **passport_out);
 char* stir_shaken_authenticate_to_sih_with_key(struct stir_shaken_context_s *ss, stir_shaken_passport_params_t *params, stir_shaken_passport_t **passport_out, unsigned char *key, uint32_t keylen);
 char* stir_shaken_as_authenticate_to_sih(struct stir_shaken_context_s *ss, stir_shaken_as_t *as, stir_shaken_passport_params_t *params, stir_shaken_passport_t **passport_out);
+char* stir_shaken_as_div_authenticate_to_sih(struct stir_shaken_context_s *ss, stir_shaken_as_t *as, stir_shaken_div_passport_params_t *params, stir_shaken_passport_t **passport_out);
 stir_shaken_status_t stir_shaken_as_install_cert(struct stir_shaken_context_s *ss, stir_shaken_as_t *as, const char *where);
 
 // Verification service
