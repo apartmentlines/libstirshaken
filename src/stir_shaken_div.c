@@ -30,6 +30,35 @@ static stir_shaken_status_t stir_shaken_validate_attest(stir_shaken_context_t *s
 	return STIR_SHAKEN_STATUS_OK;
 }
 
+static stir_shaken_status_t stir_shaken_validate_div_reason(stir_shaken_context_t *ss, const char *reason)
+{
+	static const char *valid_reasons[] = {
+		"forwarding",
+		"deflection",
+		"follow-me",
+		"time-of-day",
+		"user-busy",
+		"no-answer",
+		"unavailable",
+		"unconditional",
+		"away",
+		"unknown"
+	};
+	size_t i = 0;
+
+	if (stir_shaken_zstr(reason)) {
+		stir_shaken_set_error(ss, "DIV PASSporT @reason is missing", STIR_SHAKEN_ERROR_BAD_PARAMS_1);
+		return STIR_SHAKEN_STATUS_FALSE;
+	}
+
+	for (i = 0; i < sizeof(valid_reasons) / sizeof(valid_reasons[0]); i++) {
+		if (!strcmp(reason, valid_reasons[i])) return STIR_SHAKEN_STATUS_OK;
+	}
+
+	stir_shaken_set_error(ss, "DIV PASSporT @reason is invalid", STIR_SHAKEN_ERROR_BAD_PARAMS_1);
+	return STIR_SHAKEN_STATUS_FALSE;
+}
+
 static stir_shaken_status_t stir_shaken_json_get_string_dup(stir_shaken_context_t *ss, ks_json_t *obj, const char *key, char **out)
 {
 	ks_json_t *item = NULL;
@@ -100,6 +129,58 @@ static stir_shaken_status_t stir_shaken_json_get_identity_dup(stir_shaken_contex
 		return STIR_SHAKEN_STATUS_TERM;
 	}
 	*val_out = val;
+	return STIR_SHAKEN_STATUS_OK;
+}
+
+static stir_shaken_status_t stir_shaken_json_validate_dest(stir_shaken_context_t *ss, ks_json_t *dest)
+{
+	const char *keys[] = { "tn", "uri" };
+	uint32_t values = 0;
+	uint32_t i = 0;
+
+	if (!dest || ks_json_type_get(dest) != KS_JSON_TYPE_OBJECT) {
+		stir_shaken_set_error(ss, "DIV PASSporT @dest must be an object", STIR_SHAKEN_ERROR_PASSPORT_INVALID_DEST);
+		return STIR_SHAKEN_STATUS_FALSE;
+	}
+
+	for (i = 0; i < 2; i++) {
+		ks_json_t *arr = ks_json_get_object_item(dest, keys[i]);
+		int size = 0;
+		int j = 0;
+
+		if (!arr) continue;
+		if (ks_json_type_get(arr) != KS_JSON_TYPE_ARRAY) {
+			stir_shaken_set_error(ss, "DIV PASSporT @dest identity must be an array", STIR_SHAKEN_ERROR_PASSPORT_INVALID_DEST);
+			return STIR_SHAKEN_STATUS_FALSE;
+		}
+
+		size = ks_json_get_array_size(arr);
+		for (j = 0; j < size; j++) {
+			ks_json_t *item = ks_json_get_array_item(arr, j);
+			const char *value = NULL;
+
+			if (!item || ks_json_type_get(item) != KS_JSON_TYPE_STRING) {
+				stir_shaken_set_error(ss, "DIV PASSporT @dest values must be strings", STIR_SHAKEN_ERROR_PASSPORT_INVALID_DEST);
+				return STIR_SHAKEN_STATUS_FALSE;
+			}
+#if KS_VERSION_NUM >= 20000
+			ks_json_value_string(item, &value);
+#else
+			value = ks_json_value_string(item);
+#endif
+			if (stir_shaken_zstr(value)) {
+				stir_shaken_set_error(ss, "DIV PASSporT @dest value is empty", STIR_SHAKEN_ERROR_PASSPORT_INVALID_DEST);
+				return STIR_SHAKEN_STATUS_FALSE;
+			}
+			values++;
+		}
+	}
+
+	if (!values) {
+		stir_shaken_set_error(ss, "DIV PASSporT @dest is missing tn or uri values", STIR_SHAKEN_ERROR_PASSPORT_INVALID_DEST);
+		return STIR_SHAKEN_STATUS_FALSE;
+	}
+
 	return STIR_SHAKEN_STATUS_OK;
 }
 
@@ -217,6 +298,10 @@ static stir_shaken_status_t stir_shaken_div_passport_jwt_init(stir_shaken_contex
 	}
 
 	if ((params->flags & STIR_SHAKEN_DIV_FLAG_INCLUDE_SHAKEN_CLAIMS) && stir_shaken_validate_attest(ss, params->attest) != STIR_SHAKEN_STATUS_OK) {
+		return STIR_SHAKEN_STATUS_FALSE;
+	}
+
+	if ((params->flags & STIR_SHAKEN_DIV_FLAG_INCLUDE_REASON) && stir_shaken_validate_div_reason(ss, params->reason) != STIR_SHAKEN_STATUS_OK) {
 		return STIR_SHAKEN_STATUS_FALSE;
 	}
 
@@ -718,11 +803,19 @@ stir_shaken_status_t stir_shaken_div_passport_validate_grants(stir_shaken_contex
 	char *dest = NULL;
 	char *div = NULL;
 	char *opt = NULL;
+	ks_json_t *orig_json = NULL;
+	ks_json_t *dest_json = NULL;
+	ks_json_t *div_json = NULL;
+	ks_json_t *reason_json = NULL;
+	ks_json_t *hi_json = NULL;
+	char *identity_key = NULL;
+	char *identity_val = NULL;
 	long int iat = 0;
 	stir_shaken_status_t status = STIR_SHAKEN_STATUS_OK;
 
 	if (!passport) return STIR_SHAKEN_STATUS_TERM;
 
+	errno = 0;
 	iat = stir_shaken_passport_get_grant_int(ss, passport, "iat");
 	if (errno == ENOENT || iat == 0) {
 		stir_shaken_set_error(ss, "DIV PASSporT Invalid. @iat is missing", STIR_SHAKEN_ERROR_PASSPORT_INVALID_IAT);
@@ -741,12 +834,76 @@ stir_shaken_status_t stir_shaken_div_passport_validate_grants(stir_shaken_contex
 		goto done;
 	}
 
+	orig_json = ks_json_parse(orig);
+	dest_json = ks_json_parse(dest);
+	div_json = ks_json_parse(div);
+	if (!orig_json || !dest_json || !div_json) {
+		stir_shaken_set_error(ss, "DIV PASSporT Invalid. required grant is malformed JSON", STIR_SHAKEN_ERROR_PASSPORT_GRANTS_INVALID);
+		status = STIR_SHAKEN_STATUS_FALSE;
+		goto done;
+	}
+
+	status = stir_shaken_json_get_identity_dup(ss, orig_json, &identity_key, &identity_val);
+	if (status != STIR_SHAKEN_STATUS_OK) {
+		stir_shaken_set_error(ss, "DIV PASSporT Invalid. @orig must contain tn or uri", STIR_SHAKEN_ERROR_PASSPORT_INVALID_ORIG);
+		status = STIR_SHAKEN_STATUS_FALSE;
+		goto done;
+	}
+	free(identity_key);
+	free(identity_val);
+	identity_key = NULL;
+	identity_val = NULL;
+
+	status = stir_shaken_json_validate_dest(ss, dest_json);
+	if (status != STIR_SHAKEN_STATUS_OK) {
+		status = STIR_SHAKEN_STATUS_FALSE;
+		goto done;
+	}
+
+	status = stir_shaken_json_get_identity_dup(ss, div_json, &identity_key, &identity_val);
+	if (status != STIR_SHAKEN_STATUS_OK) {
+		stir_shaken_set_error(ss, "DIV PASSporT Invalid. @div must contain tn or uri", STIR_SHAKEN_ERROR_PASSPORT_GRANTS_INVALID);
+		status = STIR_SHAKEN_STATUS_FALSE;
+		goto done;
+	}
+
+	reason_json = ks_json_get_object_item(div_json, "reason");
+	if (reason_json) {
+		const char *reason = NULL;
+		if (ks_json_type_get(reason_json) != KS_JSON_TYPE_STRING) {
+			stir_shaken_set_error(ss, "DIV PASSporT Invalid. @reason must be a string", STIR_SHAKEN_ERROR_PASSPORT_GRANTS_INVALID);
+			status = STIR_SHAKEN_STATUS_FALSE;
+			goto done;
+		}
+#if KS_VERSION_NUM >= 20000
+		ks_json_value_string(reason_json, &reason);
+#else
+		reason = ks_json_value_string(reason_json);
+#endif
+		if (stir_shaken_validate_div_reason(ss, reason) != STIR_SHAKEN_STATUS_OK) {
+			status = STIR_SHAKEN_STATUS_FALSE;
+			goto done;
+		}
+	}
+
+	hi_json = ks_json_get_object_item(div_json, "hi");
+	if (hi_json && ks_json_type_get(hi_json) != KS_JSON_TYPE_STRING) {
+		stir_shaken_set_error(ss, "DIV PASSporT Invalid. @hi must be a string", STIR_SHAKEN_ERROR_PASSPORT_GRANTS_INVALID);
+		status = STIR_SHAKEN_STATUS_FALSE;
+		goto done;
+	}
+
 	if (!stir_shaken_zstr(opt)) {
 		stir_shaken_set_error(ss, "DIV PASSporT Invalid. @opt is not allowed for ppt=div", STIR_SHAKEN_ERROR_PASSPORT_GRANTS_INVALID);
 		status = STIR_SHAKEN_STATUS_FALSE;
 	}
 
 done:
+	if (identity_key) free(identity_key);
+	if (identity_val) free(identity_val);
+	if (orig_json) ks_json_delete(&orig_json);
+	if (dest_json) ks_json_delete(&dest_json);
+	if (div_json) ks_json_delete(&div_json);
 	if (orig) free(orig);
 	if (dest) free(dest);
 	if (div) free(div);
@@ -764,24 +921,77 @@ stir_shaken_status_t stir_shaken_div_validate_chain_claims(stir_shaken_context_t
 {
 	char *orig_orig = NULL;
 	char *div_orig = NULL;
+	char *orig_dest = NULL;
 	char *div_claim = NULL;
+	ks_json_t *orig_orig_json = NULL;
+	ks_json_t *div_orig_json = NULL;
+	ks_json_t *orig_dest_json = NULL;
+	ks_json_t *div_claim_json = NULL;
+	char *orig_key = NULL;
+	char *orig_val = NULL;
+	char *div_orig_key = NULL;
+	char *div_orig_val = NULL;
+	char *div_key = NULL;
+	char *div_val = NULL;
+	char *selected_key = NULL;
+	char *selected_val = NULL;
 	stir_shaken_status_t status = STIR_SHAKEN_STATUS_FALSE;
 
 	if (!original || !div) return STIR_SHAKEN_STATUS_TERM;
 	if (stir_shaken_div_passport_validate_headers_and_grants(ss, div) != STIR_SHAKEN_STATUS_OK) return STIR_SHAKEN_STATUS_FALSE;
 
 	orig_orig = stir_shaken_passport_get_grants_json(ss, original, "orig");
+	orig_dest = stir_shaken_passport_get_grants_json(ss, original, "dest");
 	div_orig = stir_shaken_passport_get_grants_json(ss, div, "orig");
 	div_claim = stir_shaken_passport_get_grants_json(ss, div, "div");
-	if (!orig_orig || !div_orig || !div_claim || strcmp(orig_orig, div_orig)) {
+	if (!orig_orig || !orig_dest || !div_orig || !div_claim) {
+		stir_shaken_set_error(ss, "DIV chain Invalid. required claim missing", STIR_SHAKEN_ERROR_PASSPORT_GRANTS_INVALID);
+		goto done;
+	}
+
+	orig_orig_json = ks_json_parse(orig_orig);
+	orig_dest_json = ks_json_parse(orig_dest);
+	div_orig_json = ks_json_parse(div_orig);
+	div_claim_json = ks_json_parse(div_claim);
+	if (!orig_orig_json || !orig_dest_json || !div_orig_json || !div_claim_json) {
+		stir_shaken_set_error(ss, "DIV chain Invalid. required claim is malformed JSON", STIR_SHAKEN_ERROR_PASSPORT_GRANTS_INVALID);
+		goto done;
+	}
+
+	if (stir_shaken_json_get_identity_dup(ss, orig_orig_json, &orig_key, &orig_val) != STIR_SHAKEN_STATUS_OK ||
+		stir_shaken_json_get_identity_dup(ss, div_orig_json, &div_orig_key, &div_orig_val) != STIR_SHAKEN_STATUS_OK ||
+		strcmp(orig_key, div_orig_key) || strcmp(orig_val, div_orig_val)) {
 		stir_shaken_set_error(ss, "DIV chain Invalid. @orig mismatch", STIR_SHAKEN_ERROR_PASSPORT_INVALID_ORIG);
+		goto done;
+	}
+
+	if (stir_shaken_json_get_identity_dup(ss, div_claim_json, &div_key, &div_val) != STIR_SHAKEN_STATUS_OK) {
+		stir_shaken_set_error(ss, "DIV chain Invalid. @div missing original destination", STIR_SHAKEN_ERROR_PASSPORT_GRANTS_INVALID);
+		goto done;
+	}
+
+	if (stir_shaken_extract_dest_selection(ss, orig_dest_json, div_key, div_val, &selected_key, &selected_val) != STIR_SHAKEN_STATUS_OK) {
+		stir_shaken_set_error(ss, "DIV chain Invalid. @div destination is not in original @dest", STIR_SHAKEN_ERROR_PASSPORT_INVALID_DEST);
 		goto done;
 	}
 
 	status = STIR_SHAKEN_STATUS_OK;
 
 done:
+	if (selected_key) free(selected_key);
+	if (selected_val) free(selected_val);
+	if (div_key) free(div_key);
+	if (div_val) free(div_val);
+	if (div_orig_key) free(div_orig_key);
+	if (div_orig_val) free(div_orig_val);
+	if (orig_key) free(orig_key);
+	if (orig_val) free(orig_val);
+	if (orig_orig_json) ks_json_delete(&orig_orig_json);
+	if (div_orig_json) ks_json_delete(&div_orig_json);
+	if (orig_dest_json) ks_json_delete(&orig_dest_json);
+	if (div_claim_json) ks_json_delete(&div_claim_json);
 	if (orig_orig) free(orig_orig);
+	if (orig_dest) free(orig_dest);
 	if (div_orig) free(div_orig);
 	if (div_claim) free(div_claim);
 	return status;
