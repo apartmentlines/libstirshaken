@@ -16,7 +16,7 @@ examples = stir_shaken_as_basic stir_shaken_vs_basic stir_shaken_ca stir_shaken_
 
 bin_PROGRAMS = stirshaken $(examples)
 stirshaken_SOURCES = util/src/stir_shaken_tool_command.c util/src/stir_shaken_tool.c util/src/stir_shaken_ca.c util/src/mongoose.c
-stirshaken_CFLAGS = -Iinclude -Iutil/include $(KS_CFLAGS) -DMG_ENABLE_SSL
+stirshaken_CFLAGS = -Iinclude -Iutil/include $(KS_CFLAGS) -DMG_TLS=MG_TLS_OPENSSL
 stirshaken_LDADD = libstirshaken.la $(KS_LIBS)
 
 LIBS += $(KS_LIBS) $(CURL_LIBS) $(JWT_LIBS) -pthread
@@ -70,7 +70,7 @@ stir_shaken_test_12_CFLAGS = -Iinclude $(KS_CFLAGS)
 stir_shaken_test_12_LDADD = libstirshaken.la
 
 stir_shaken_test_13_SOURCES = test/stir_shaken_test_13.c util/src/stir_shaken_ca.c util/src/mongoose.c
-stir_shaken_test_13_CFLAGS = -Iinclude $(KS_CFLAGS) -Iutil/include -DMG_ENABLE_SSL
+stir_shaken_test_13_CFLAGS = -Iinclude $(KS_CFLAGS) -Iutil/include -DMG_TLS=MG_TLS_OPENSSL
 stir_shaken_test_13_LDADD = libstirshaken.la
 
 stir_shaken_test_14_SOURCES = test/stir_shaken_test_14.c
@@ -106,7 +106,7 @@ stir_shaken_vs_basic_CFLAGS = -Iinclude $(KS_CFLAGS)
 stir_shaken_vs_basic_LDADD = libstirshaken.la
 
 stir_shaken_ca_SOURCES = examples/stir_shaken_ca.c util/src/stir_shaken_ca.c util/src/mongoose.c
-stir_shaken_ca_CFLAGS = -Iinclude -Iutil/include $(KS_CFLAGS) -DMG_ENABLE_SSL
+stir_shaken_ca_CFLAGS = -Iinclude -Iutil/include $(KS_CFLAGS) -DMG_TLS=MG_TLS_OPENSSL
 stir_shaken_ca_LDADD = libstirshaken.la
 
 stir_shaken_cert_req_SOURCES = examples/stir_shaken_cert_req.c
