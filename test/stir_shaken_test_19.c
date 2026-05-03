@@ -108,6 +108,7 @@ stir_shaken_status_t stir_shaken_unit_test_div_passport(void)
 	stir_shaken_assert(div_sih, "DIV SIP Identity Header missing");
 	stir_shaken_assert(str_contains(div_sih, ";info=<https://not.here.org/div-passport.cer>;alg=ES256;ppt=div"), "DIV SIH did not contain expected params");
 	stir_shaken_assert(STIR_SHAKEN_STATUS_OK == stir_shaken_div_passport_validate_headers_and_grants(&ss, div_passport), "DIV PASSporT validation failed");
+	stir_shaken_assert(STIR_SHAKEN_STATUS_OK == stir_shaken_div_passport_validate(&ss, div_passport, 0xffffffffu), "DIV PASSporT freshness validation failed");
 
 	as_sih = stir_shaken_as_div_authenticate_to_sih(&ss, as, &div_params, &verified_passport);
 	stir_shaken_assert(as_sih, "AS wrapper failed to create DIV SIP Identity Header");
@@ -145,6 +146,7 @@ stir_shaken_status_t stir_shaken_unit_test_div_passport(void)
 	stir_shaken_assert(token, "Malformed DIV SIH");
 	*token = '\0';
 	stir_shaken_assert(STIR_SHAKEN_STATUS_OK == stir_shaken_sih_verify_with_key(&ss, div_sih, pub_raw, pub_raw_len, &verified_passport), "DIV signature verification failed");
+	stir_shaken_assert(STIR_SHAKEN_STATUS_OK == stir_shaken_div_passport_validate(&ss, verified_passport, 0xffffffffu), "Verified DIV PASSporT validation failed");
 	stir_shaken_passport_destroy(&verified_passport);
 	free(parsed_token);
 	parsed_token = NULL;
@@ -250,6 +252,16 @@ stir_shaken_status_t stir_shaken_unit_test_div_passport(void)
 	stir_shaken_passport_destroy(&bad_passport);
 	stir_shaken_clear_error(&ss);
 
+	bad_passport = passport_from_json(&ss,
+		"{\"ppt\":\"div\",\"typ\":\"passport\",\"x5u\":\"https://not.here.org/div-passport.cer\"}",
+		"{\"dest\":{\"tn\":[\"12155551214\"]},\"div\":{\"tn\":\"12155551213\"},\"iat\":1,\"orig\":{\"tn\":\"12155551212\"}}",
+		priv_raw,
+		priv_raw_len);
+	stir_shaken_assert(bad_passport, "Failed to create stale DIV PASSporT");
+	stir_shaken_assert(STIR_SHAKEN_STATUS_OK != stir_shaken_div_passport_validate(&ss, bad_passport, 60), "DIV validation should reject stale iat");
+	stir_shaken_passport_destroy(&bad_passport);
+	stir_shaken_clear_error(&ss);
+
 	shaken_params.x5u = x5u;
 	shaken_params.attest = "A";
 	shaken_params.desttn_key = "tn";
@@ -283,6 +295,18 @@ stir_shaken_status_t stir_shaken_unit_test_div_passport(void)
 	status = stir_shaken_div_authenticate_keep_passport(&ss, &tampered_sih, &invalid_params, priv_raw, priv_raw_len, &bad_passport);
 	stir_shaken_assert(status == STIR_SHAKEN_STATUS_OK, "Failed to create bad-chain DIV PASSporT");
 	stir_shaken_assert(STIR_SHAKEN_STATUS_OK != stir_shaken_div_validate_chain_claims(&ss, shaken_passport, bad_passport), "DIV chain should reject original destination not present in SHAKEN dest");
+	free(tampered_sih);
+	tampered_sih = NULL;
+	stir_shaken_passport_destroy(&bad_passport);
+	stir_shaken_clear_error(&ss);
+
+	invalid_params = div_params;
+	invalid_params.attest = "A";
+	invalid_params.origid = "wrong-orig-id";
+	invalid_params.flags = STIR_SHAKEN_DIV_FLAG_INCLUDE_SHAKEN_CLAIMS;
+	status = stir_shaken_div_authenticate_keep_passport(&ss, &tampered_sih, &invalid_params, priv_raw, priv_raw_len, &bad_passport);
+	stir_shaken_assert(status == STIR_SHAKEN_STATUS_OK, "Failed to create bad-origid DIV PASSporT");
+	stir_shaken_assert(STIR_SHAKEN_STATUS_OK != stir_shaken_div_validate_chain_claims(&ss, shaken_passport, bad_passport), "DIV chain should reject origid mismatch when DIV origid is present");
 	free(tampered_sih);
 	tampered_sih = NULL;
 	stir_shaken_passport_destroy(&bad_passport);

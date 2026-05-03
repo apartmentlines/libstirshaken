@@ -947,6 +947,7 @@ stir_shaken_status_t stir_shaken_div_params_from_original_sih(stir_shaken_contex
 stir_shaken_status_t stir_shaken_div_passport_validate_headers(stir_shaken_context_t *ss, stir_shaken_passport_t *passport);
 stir_shaken_status_t stir_shaken_div_passport_validate_grants(stir_shaken_context_t *ss, stir_shaken_passport_t *passport);
 stir_shaken_status_t stir_shaken_div_passport_validate_headers_and_grants(stir_shaken_context_t *ss, stir_shaken_passport_t *passport);
+stir_shaken_status_t stir_shaken_div_passport_validate(stir_shaken_context_t *ss, stir_shaken_passport_t *passport, uint32_t iat_freshness);
 stir_shaken_status_t stir_shaken_div_validate_chain_claims(stir_shaken_context_t *ss, stir_shaken_passport_t *original, stir_shaken_passport_t *div);
 
 stir_shaken_status_t stir_shaken_passport_jwt_init(stir_shaken_context_t *ss, jwt_t *jwt, stir_shaken_passport_params_t *params, unsigned char *key, uint32_t keylen);
@@ -1224,6 +1225,9 @@ stir_shaken_status_t stir_shaken_passport_verify(stir_shaken_context_t *ss, cons
 stir_shaken_status_t stir_shaken_sih_verify_ex(stir_shaken_context_t *ss, const char *sih, stir_shaken_cert_t **cert_out, stir_shaken_passport_t **passport_out, X509_STORE *store, uint8_t check_x509_cert_path, unsigned long connect_timeout_s);
 stir_shaken_status_t stir_shaken_sih_verify(stir_shaken_context_t *ss, const char *sih,  stir_shaken_cert_t **cert_out, stir_shaken_passport_t **passport_out, unsigned long connect_timeout_s);
 
+stir_shaken_status_t stir_shaken_div_passport_verify_ex(stir_shaken_context_t *ss, const char *token, stir_shaken_cert_t **cert_out, stir_shaken_passport_t **passport_out, X509_STORE *store, uint8_t check_x509_cert_path, unsigned long connect_timeout_s, uint32_t iat_freshness);
+stir_shaken_status_t stir_shaken_div_sih_verify_ex(stir_shaken_context_t *ss, const char *sih, stir_shaken_cert_t **cert_out, stir_shaken_passport_t **passport_out, X509_STORE *store, uint8_t check_x509_cert_path, unsigned long connect_timeout_s, uint32_t iat_freshness);
+
 stir_shaken_status_t stir_shaken_sih_verify_with_key(stir_shaken_context_t *ss, const char *identity_header, unsigned char *key, int key_len, stir_shaken_passport_t **passport_out);
 stir_shaken_status_t stir_shaken_sih_verify_with_cert(stir_shaken_context_t *ss, const char *identity_header, stir_shaken_cert_t *cert, stir_shaken_passport_t **passport_out);
 
@@ -1408,6 +1412,13 @@ typedef struct stir_shaken_vs_s {
 	stir_shaken_vs_settings_t settings;
 } stir_shaken_vs_t;
 
+typedef struct stir_shaken_vs_div_result_s {
+	stir_shaken_cert_t *original_cert;
+	stir_shaken_passport_t *original_passport;
+	stir_shaken_cert_t *div_cert;
+	stir_shaken_passport_t *div_passport;
+} stir_shaken_vs_div_result_t;
+
 stir_shaken_vs_t* stir_shaken_vs_create(struct stir_shaken_context_s *ss);
 void stir_shaken_vs_destroy(stir_shaken_vs_t **vs);
 stir_shaken_status_t stir_shaken_vs_load_ca_dir(struct stir_shaken_context_s *ss, stir_shaken_vs_t *vs, const char *ca_dir);
@@ -1418,6 +1429,8 @@ stir_shaken_status_t stir_shaken_vs_set_connect_timeout(struct stir_shaken_conte
 stir_shaken_status_t stir_shaken_vs_passport_to_jwt_verify(stir_shaken_context_t *ss, stir_shaken_vs_t *vs, const char *token, stir_shaken_cert_t **cert_out, jwt_t **jwt_out);
 stir_shaken_status_t stir_shaken_vs_passport_verify(stir_shaken_context_t *ss, stir_shaken_vs_t *vs, const char *token, stir_shaken_cert_t **cert_out, stir_shaken_passport_t **passport_out);
 stir_shaken_status_t stir_shaken_vs_sih_verify(stir_shaken_context_t *ss, stir_shaken_vs_t *vs, const char *sih, stir_shaken_cert_t **cert_out, stir_shaken_passport_t **passport_out);
+void stir_shaken_vs_div_result_deinit(stir_shaken_vs_div_result_t *result);
+stir_shaken_status_t stir_shaken_vs_div_sih_verify(stir_shaken_context_t *ss, stir_shaken_vs_t *vs, const char *original_sih, const char *div_sih, stir_shaken_vs_div_result_t *result);
 
 // @arg - PASSporT params
 stir_shaken_status_t stir_shaken_as_authenticate(struct stir_shaken_context_s *ss, stir_shaken_as_t *as, stir_shaken_passport_params_t *params);

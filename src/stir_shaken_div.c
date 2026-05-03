@@ -935,6 +935,8 @@ stir_shaken_status_t stir_shaken_div_validate_chain_claims(stir_shaken_context_t
 	char *div_val = NULL;
 	char *selected_key = NULL;
 	char *selected_val = NULL;
+	const char *origid = NULL;
+	const char *div_origid = NULL;
 	stir_shaken_status_t status = STIR_SHAKEN_STATUS_FALSE;
 
 	if (!original || !div) return STIR_SHAKEN_STATUS_TERM;
@@ -973,6 +975,15 @@ stir_shaken_status_t stir_shaken_div_validate_chain_claims(stir_shaken_context_t
 	if (stir_shaken_extract_dest_selection(ss, orig_dest_json, div_key, div_val, &selected_key, &selected_val) != STIR_SHAKEN_STATUS_OK) {
 		stir_shaken_set_error(ss, "DIV chain Invalid. @div destination is not in original @dest", STIR_SHAKEN_ERROR_PASSPORT_INVALID_DEST);
 		goto done;
+	}
+
+	div_origid = stir_shaken_passport_get_grant(ss, div, "origid");
+	if (!stir_shaken_zstr(div_origid)) {
+		origid = stir_shaken_passport_get_grant(ss, original, "origid");
+		if (stir_shaken_zstr(origid) || strcmp(origid, div_origid)) {
+			stir_shaken_set_error(ss, "DIV chain Invalid. @origid mismatch", STIR_SHAKEN_ERROR_PASSPORT_INVALID_ORIGID);
+			goto done;
+		}
 	}
 
 	status = STIR_SHAKEN_STATUS_OK;
