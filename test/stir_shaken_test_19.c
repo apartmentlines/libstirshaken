@@ -155,7 +155,7 @@ stir_shaken_status_t stir_shaken_unit_test_div_passport(void)
 	compat_params.reason = "forwarding";
 	compat_params.attest = "A";
 	compat_params.origid = "orig-id-1";
-	compat_params.flags = STIR_SHAKEN_DIV_FLAG_INCLUDE_REASON | STIR_SHAKEN_DIV_FLAG_INCLUDE_SHAKEN_CLAIMS;
+	compat_params.flags = STIR_SHAKEN_DIV_FLAG_INCLUDE_SHAKEN_CLAIMS;
 	status = stir_shaken_div_authenticate_keep_passport(&ss, &compat_sih, &compat_params, priv_raw, priv_raw_len, &compat_passport);
 	stir_shaken_assert(status == STIR_SHAKEN_STATUS_OK, "Failed to create compatibility DIV SIP Identity Header");
 	dump = stir_shaken_passport_dump_str(&ss, compat_passport, 0);

@@ -301,7 +301,7 @@ static stir_shaken_status_t stir_shaken_div_passport_jwt_init(stir_shaken_contex
 		return STIR_SHAKEN_STATUS_FALSE;
 	}
 
-	if ((params->flags & STIR_SHAKEN_DIV_FLAG_INCLUDE_REASON) && stir_shaken_validate_div_reason(ss, params->reason) != STIR_SHAKEN_STATUS_OK) {
+	if (!stir_shaken_zstr(params->reason) && stir_shaken_validate_div_reason(ss, params->reason) != STIR_SHAKEN_STATUS_OK) {
 		return STIR_SHAKEN_STATUS_FALSE;
 	}
 
@@ -346,12 +346,12 @@ static stir_shaken_status_t stir_shaken_div_passport_jwt_init(stir_shaken_contex
 #if KS_VERSION_NUM >= 20000
 	ks_json_add_string_to_object(div, stir_shaken_identity_key_or_default(params->div_key), params->div_val);
 	if (!stir_shaken_zstr(params->hi)) ks_json_add_string_to_object(div, "hi", params->hi);
-	if ((params->flags & STIR_SHAKEN_DIV_FLAG_INCLUDE_REASON) && !stir_shaken_zstr(params->reason)) ks_json_add_string_to_object(div, "reason", params->reason);
+	if (!stir_shaken_zstr(params->reason)) ks_json_add_string_to_object(div, "reason", params->reason);
 	ks_json_add_item_to_object(json, "div", div);
 #else
 	if (!ks_json_add_string_to_object(div, stir_shaken_identity_key_or_default(params->div_key), params->div_val) ||
 		(!stir_shaken_zstr(params->hi) && !ks_json_add_string_to_object(div, "hi", params->hi)) ||
-		((params->flags & STIR_SHAKEN_DIV_FLAG_INCLUDE_REASON) && !stir_shaken_zstr(params->reason) && !ks_json_add_string_to_object(div, "reason", params->reason)) ||
+		(!stir_shaken_zstr(params->reason) && !ks_json_add_string_to_object(div, "reason", params->reason)) ||
 		!ks_json_add_item_to_object(json, "div", div)) {
 		ks_json_delete(&div);
 		stir_shaken_set_error(ss, "DIV PASSporT: failed to add div claim", STIR_SHAKEN_ERROR_KSJSON_ADD_TN);
