@@ -55,10 +55,29 @@ stir_shaken_status_t stir_shaken_unit_test_div_passport(void)
 	char public_key_name[300] = { 0 };
 	const char *dest_vals[1] = { new_desttn };
 	const char *multi_dest_vals[2] = { new_desttn, "12155551215" };
+	const char *valid_reason_values[] = {
+		"unknown",
+		"user-busy",
+		"no-answer",
+		"unavailable",
+		"unconditional",
+		"time-of-day",
+		"do-not-disturb",
+		"deflection",
+		"follow-me",
+		"out-of-service",
+		"away",
+		"forwarding",
+		"customer-specific",
+		"\"customer specific\""
+	};
+	uint32_t valid_reason_values_count = sizeof(valid_reason_values) / sizeof(valid_reason_values[0]);
+	uint32_t reason_i = 0;
 	stir_shaken_div_passport_params_t div_params = { 0 };
 	stir_shaken_div_passport_params_t compat_params = { 0 };
 	stir_shaken_div_passport_params_t from_sih_params = { 0 };
 	stir_shaken_div_passport_params_t invalid_params = { 0 };
+	stir_shaken_div_passport_params_t reason_params = { 0 };
 	stir_shaken_div_passport_params_t uri_params = { 0 };
 	stir_shaken_passport_params_t shaken_params = { 0 };
 	stir_shaken_passport_t *div_passport = NULL;
@@ -76,6 +95,7 @@ stir_shaken_status_t stir_shaken_unit_test_div_passport(void)
 	char *multi_original_sih = NULL;
 	char *as_sih = NULL;
 	char *uri_sih = NULL;
+	char *bad_original_sih = NULL;
 	char *tampered_sih = NULL;
 	char *dump = NULL;
 	char *copy = NULL;
@@ -109,6 +129,9 @@ stir_shaken_status_t stir_shaken_unit_test_div_passport(void)
 	stir_shaken_assert(str_contains(div_sih, ";info=<https://not.here.org/div-passport.cer>;alg=ES256;ppt=div"), "DIV SIH did not contain expected params");
 	stir_shaken_assert(STIR_SHAKEN_STATUS_OK == stir_shaken_div_passport_validate_headers_and_grants(&ss, div_passport), "DIV PASSporT validation failed");
 	stir_shaken_assert(STIR_SHAKEN_STATUS_OK == stir_shaken_div_passport_validate(&ss, div_passport, 0xffffffffu), "DIV PASSporT freshness validation failed");
+	stir_shaken_assert(STIR_SHAKEN_STATUS_OK == stir_shaken_div_passport_validate_dest(&ss, div_passport, "tn", new_desttn), "DIV destination should match expected TN");
+	stir_shaken_assert(STIR_SHAKEN_STATUS_OK != stir_shaken_div_passport_validate_dest(&ss, div_passport, "tn", old_desttn), "DIV destination should reject mismatched TN");
+	stir_shaken_clear_error(&ss);
 
 	as_sih = stir_shaken_as_div_authenticate_to_sih(&ss, as, &div_params, &verified_passport);
 	stir_shaken_assert(as_sih, "AS wrapper failed to create DIV SIP Identity Header");
@@ -166,8 +189,17 @@ stir_shaken_status_t stir_shaken_unit_test_div_passport(void)
 	stir_shaken_free_jwt_str(dump);
 	dump = NULL;
 
+	for (reason_i = 0; reason_i < valid_reason_values_count; reason_i++) {
+		reason_params = compat_params;
+		reason_params.reason = valid_reason_values[reason_i];
+		status = stir_shaken_div_authenticate_keep_passport(&ss, &tampered_sih, &reason_params, priv_raw, priv_raw_len, NULL);
+		stir_shaken_assert(status == STIR_SHAKEN_STATUS_OK, "RFC 5806 DIV reason should be accepted");
+		free(tampered_sih);
+		tampered_sih = NULL;
+	}
+
 	invalid_params = compat_params;
-	invalid_params.reason = "not-a-real-reason";
+	invalid_params.reason = "not a real reason";
 	status = stir_shaken_div_authenticate_keep_passport(&ss, &tampered_sih, &invalid_params, priv_raw, priv_raw_len, NULL);
 	stir_shaken_assert(status != STIR_SHAKEN_STATUS_OK, "Invalid DIV reason should fail");
 	free(tampered_sih);
@@ -192,6 +224,9 @@ stir_shaken_status_t stir_shaken_unit_test_div_passport(void)
 	stir_shaken_assert(str_contains(dump, "\"hi\":\"index=1\""), "URI DIV PASSporT missing hi");
 	stir_shaken_free_jwt_str(dump);
 	dump = NULL;
+	stir_shaken_assert(STIR_SHAKEN_STATUS_OK == stir_shaken_div_passport_validate_dest(&ss, uri_passport, "uri", "sip:bob@example.com"), "DIV destination should match expected URI");
+	stir_shaken_assert(STIR_SHAKEN_STATUS_OK != stir_shaken_div_passport_validate_dest(&ss, uri_passport, "uri", "sip:carol@example.com"), "DIV destination should reject mismatched URI");
+	stir_shaken_clear_error(&ss);
 	free(uri_sih);
 	uri_sih = NULL;
 	stir_shaken_passport_destroy(&uri_passport);
@@ -290,6 +325,22 @@ stir_shaken_status_t stir_shaken_unit_test_div_passport(void)
 	dump = NULL;
 	stir_shaken_assert(STIR_SHAKEN_STATUS_OK == stir_shaken_div_validate_chain_claims(&ss, shaken_passport, from_sih_passport), "Valid DIV chain should pass");
 
+	bad_passport = passport_from_json(&ss,
+		"{\"ppt\":\"shaken\",\"typ\":\"passport\",\"x5u\":\"https://not.here.org/div-passport.cer\"}",
+		"{\"dest\":{\"tn\":[\"12155551213\"]},\"iat\":1443208345,\"orig\":{\"tn\":\"12155551212\"}}",
+		priv_raw,
+		priv_raw_len);
+	stir_shaken_assert(bad_passport, "Failed to create structurally invalid SHAKEN PASSporT");
+	bad_original_sih = stir_shaken_jwt_sip_identity_create(&ss, bad_passport, NULL, 0);
+	stir_shaken_assert(bad_original_sih, "Failed to create structurally invalid SHAKEN SIH");
+	stir_shaken_div_passport_params_destroy(&from_sih_params);
+	status = stir_shaken_div_params_from_original_sih(&ss, bad_original_sih, x5u, "tn", dest_vals, 1, NULL, NULL, 0, &from_sih_params);
+	stir_shaken_assert(status != STIR_SHAKEN_STATUS_OK, "Structurally invalid SHAKEN SIH should not seed DIV params");
+	free(bad_original_sih);
+	bad_original_sih = NULL;
+	stir_shaken_passport_destroy(&bad_passport);
+	stir_shaken_clear_error(&ss);
+
 	invalid_params = div_params;
 	invalid_params.div_val = "12155559999";
 	status = stir_shaken_div_authenticate_keep_passport(&ss, &tampered_sih, &invalid_params, priv_raw, priv_raw_len, &bad_passport);
@@ -350,6 +401,8 @@ stir_shaken_status_t stir_shaken_unit_test_div_passport(void)
 	shaken_sih = NULL;
 	free(multi_original_sih);
 	multi_original_sih = NULL;
+	free(bad_original_sih);
+	bad_original_sih = NULL;
 	free(as_sih);
 	as_sih = NULL;
 	stir_shaken_passport_destroy(&div_passport);

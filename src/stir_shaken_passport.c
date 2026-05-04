@@ -285,10 +285,12 @@ stir_shaken_status_t stir_shaken_passport_jwt_init(stir_shaken_context_t *ss, jw
 			if (jwt_add_grants_json(jwt, jstr) != 0) {
 				stir_shaken_set_error(ss, "JWT init from JSON: Failed to add grants from json", STIR_SHAKEN_ERROR_PASSPORT_JWT_ADD_GRANTS_JSON);
 				ks_json_delete(&json);
+				free(jstr);
 				return STIR_SHAKEN_STATUS_TERM;
 			}
 
 			ks_json_delete(&json);
+			free(jstr);
 		}
 	}
 

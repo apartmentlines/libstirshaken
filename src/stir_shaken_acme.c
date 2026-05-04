@@ -1,6 +1,19 @@
 #include "stir_shaken.h"
 #include <curl/curl.h>
 
+static char *stir_shaken_ks_json_print_dup(ks_json_t *json)
+{
+    char *printed = NULL;
+    char *copy = NULL;
+
+    printed = ks_json_print_unformatted(json);
+    if (!printed) return NULL;
+
+    copy = strdup(printed);
+    free(printed);
+    return copy;
+}
+
 /**
  * JSON:
  *
@@ -80,7 +93,7 @@ char* stir_shaken_acme_generate_auth_challenge(stir_shaken_context_t *ss, char *
     ks_json_add_item_to_array(arr, s); 
     ks_json_add_item_to_object(json, "authorizations", arr);
 
-    printed = strdup(ks_json_print_unformatted(json));
+    printed = stir_shaken_ks_json_print_dup(json);
     ks_json_delete(&json);
     return printed;
 }
@@ -278,10 +291,12 @@ char* stir_shaken_acme_generate_new_account_req_payload(stir_shaken_context_t *s
         jstr = ks_json_print_unformatted(contact);
         if (!jstr || (jwt_add_grant(jwt, "contact", jstr) != 0)) {
             ks_json_delete(&contact);
+            if (jstr) free(jstr);
             goto exit;
         }
 
         ks_json_delete(&contact);
+        free(jstr);
     }
 
     if (json) {
@@ -357,7 +372,7 @@ static char* mock_auth_challenge_details(void)
     ks_json_add_item_to_object(json, "identifier", o1);
     ks_json_add_item_to_object(json, "challenges", arr);
 
-    printed = strdup(ks_json_print_unformatted(json));
+    printed = stir_shaken_ks_json_print_dup(json);
     ks_json_delete(&json);
     return printed;
 }
@@ -400,7 +415,7 @@ char* stir_shaken_acme_generate_auth_challenge_details(stir_shaken_context_t *ss
     ks_json_add_item_to_object(json, "identifier", o1);
     ks_json_add_item_to_object(json, "challenges", arr);
 
-    printed = strdup(ks_json_print_unformatted(json));
+    printed = stir_shaken_ks_json_print_dup(json);
     ks_json_delete(&json);
     return printed;
 
@@ -471,7 +486,7 @@ char* stir_shaken_acme_generate_auth_polling_status(stir_shaken_context_t *ss, c
     ks_json_add_item_to_object(json, "identifier", o1);
     ks_json_add_item_to_object(json, "challenges", arr);
 
-    printed = strdup(ks_json_print_unformatted(json));
+    printed = stir_shaken_ks_json_print_dup(json);
     ks_json_delete(&json);
     return printed;
 
@@ -523,7 +538,7 @@ static char* mock_poll_response(char *status)
     }
 
     ks_json_add_string_to_object(json, "status", status);
-    printed = strdup(ks_json_print_unformatted(json));
+    printed = stir_shaken_ks_json_print_dup(json);
     ks_json_delete(&json);
     return printed;
 }

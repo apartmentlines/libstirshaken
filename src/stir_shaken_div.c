@@ -30,19 +30,69 @@ static stir_shaken_status_t stir_shaken_validate_attest(stir_shaken_context_t *s
 	return STIR_SHAKEN_STATUS_OK;
 }
 
+static int stir_shaken_is_sip_token_char(char c)
+{
+	return (c >= 'A' && c <= 'Z') ||
+		(c >= 'a' && c <= 'z') ||
+		(c >= '0' && c <= '9') ||
+		c == '-' || c == '.' || c == '!' || c == '%' ||
+		c == '*' || c == '_' || c == '+' || c == '`' ||
+		c == '\'' || c == '~';
+}
+
+static int stir_shaken_div_reason_is_sip_token(const char *reason)
+{
+	const char *p = NULL;
+
+	if (stir_shaken_zstr(reason)) return 0;
+
+	for (p = reason; *p; p++) {
+		if (!stir_shaken_is_sip_token_char(*p)) return 0;
+	}
+
+	return 1;
+}
+
+static int stir_shaken_div_reason_is_quoted_string(const char *reason)
+{
+	size_t i = 0;
+	size_t len = 0;
+	int escaped = 0;
+
+	if (stir_shaken_zstr(reason) || reason[0] != '"') return 0;
+
+	len = strlen(reason);
+	if (len < 2 || reason[len - 1] != '"') return 0;
+
+	for (i = 1; i < len - 1; i++) {
+		if (escaped) {
+			escaped = 0;
+			continue;
+		}
+		if (reason[i] == '\\') {
+			escaped = 1;
+			continue;
+		}
+		if (reason[i] == '"') return 0;
+	}
+
+	return !escaped;
+}
+
 static stir_shaken_status_t stir_shaken_validate_div_reason(stir_shaken_context_t *ss, const char *reason)
 {
 	static const char *valid_reasons[] = {
-		"forwarding",
-		"deflection",
-		"follow-me",
-		"time-of-day",
+		"unknown",
 		"user-busy",
 		"no-answer",
 		"unavailable",
 		"unconditional",
+		"time-of-day",
+		"do-not-disturb",
+		"deflection",
+		"follow-me",
+		"out-of-service",
 		"away",
-		"unknown"
 	};
 	size_t i = 0;
 
@@ -51,8 +101,17 @@ static stir_shaken_status_t stir_shaken_validate_div_reason(stir_shaken_context_
 		return STIR_SHAKEN_STATUS_FALSE;
 	}
 
+	if (!stir_shaken_header_value_is_safe(reason)) {
+		stir_shaken_set_error(ss, "DIV PASSporT @reason is unsafe", STIR_SHAKEN_ERROR_BAD_PARAMS_1);
+		return STIR_SHAKEN_STATUS_FALSE;
+	}
+
 	for (i = 0; i < sizeof(valid_reasons) / sizeof(valid_reasons[0]); i++) {
 		if (!strcmp(reason, valid_reasons[i])) return STIR_SHAKEN_STATUS_OK;
+	}
+
+	if (stir_shaken_div_reason_is_sip_token(reason) || stir_shaken_div_reason_is_quoted_string(reason)) {
+		return STIR_SHAKEN_STATUS_OK;
 	}
 
 	stir_shaken_set_error(ss, "DIV PASSporT @reason is invalid", STIR_SHAKEN_ERROR_BAD_PARAMS_1);
@@ -182,6 +241,47 @@ static stir_shaken_status_t stir_shaken_json_validate_dest(stir_shaken_context_t
 	}
 
 	return STIR_SHAKEN_STATUS_OK;
+}
+
+static stir_shaken_status_t stir_shaken_json_dest_contains(stir_shaken_context_t *ss, ks_json_t *dest, const char *expected_key, const char *expected_val)
+{
+	ks_json_t *arr = NULL;
+	int size = 0;
+	int i = 0;
+
+	if (!dest || ks_json_type_get(dest) != KS_JSON_TYPE_OBJECT) {
+		stir_shaken_set_error(ss, "DIV PASSporT @dest must be an object", STIR_SHAKEN_ERROR_PASSPORT_INVALID_DEST);
+		return STIR_SHAKEN_STATUS_FALSE;
+	}
+
+	expected_key = stir_shaken_identity_key_or_default(expected_key);
+	if (stir_shaken_validate_identity_key(ss, expected_key) != STIR_SHAKEN_STATUS_OK || stir_shaken_zstr(expected_val)) {
+		stir_shaken_set_error(ss, "DIV PASSporT expected destination is invalid", STIR_SHAKEN_ERROR_BAD_PARAMS_1);
+		return STIR_SHAKEN_STATUS_FALSE;
+	}
+
+	arr = ks_json_get_object_item(dest, expected_key);
+	if (!arr || ks_json_type_get(arr) != KS_JSON_TYPE_ARRAY) {
+		stir_shaken_set_error(ss, "DIV PASSporT @dest does not contain expected identity type", STIR_SHAKEN_ERROR_PASSPORT_INVALID_DEST);
+		return STIR_SHAKEN_STATUS_FALSE;
+	}
+
+	size = ks_json_get_array_size(arr);
+	for (i = 0; i < size; i++) {
+		ks_json_t *item = ks_json_get_array_item(arr, i);
+		const char *value = NULL;
+
+		if (!item || ks_json_type_get(item) != KS_JSON_TYPE_STRING) continue;
+#if KS_VERSION_NUM >= 20000
+		ks_json_value_string(item, &value);
+#else
+		value = ks_json_value_string(item);
+#endif
+		if (value && !strcmp(value, expected_val)) return STIR_SHAKEN_STATUS_OK;
+	}
+
+	stir_shaken_set_error(ss, "DIV PASSporT @dest does not match expected destination", STIR_SHAKEN_ERROR_PASSPORT_INVALID_DEST);
+	return STIR_SHAKEN_STATUS_FALSE;
 }
 
 static stir_shaken_status_t stir_shaken_json_add_identity_object(stir_shaken_context_t *ss, ks_json_t *parent, const char *name, const char *key, const char *val)
@@ -391,6 +491,7 @@ static stir_shaken_status_t stir_shaken_div_passport_jwt_init(stir_shaken_contex
 done:
 	if (div) ks_json_delete(&div);
 	if (json) ks_json_delete(&json);
+	if (jstr) free(jstr);
 	return status;
 }
 
@@ -684,6 +785,10 @@ stir_shaken_status_t stir_shaken_div_params_from_original_sih(stir_shaken_contex
 		goto done;
 	}
 	if (stir_shaken_passport_decode_noverify(ss, parsed.passport_token, &passport) != STIR_SHAKEN_STATUS_OK) goto done;
+	if (stir_shaken_passport_validate_headers_and_grants(ss, passport) != STIR_SHAKEN_STATUS_OK) {
+		stir_shaken_set_error_if_clear(ss, "Original SIP Identity header is not a valid SHAKEN PASSporT", STIR_SHAKEN_ERROR_PASSPORT_INVALID_1);
+		goto done;
+	}
 
 	orig_json = stir_shaken_passport_get_grants_json(ss, passport, "orig");
 	dest_json = stir_shaken_passport_get_grants_json(ss, passport, "dest");
@@ -915,6 +1020,37 @@ stir_shaken_status_t stir_shaken_div_passport_validate_headers_and_grants(stir_s
 {
 	if (stir_shaken_div_passport_validate_headers(ss, passport) != STIR_SHAKEN_STATUS_OK) return STIR_SHAKEN_STATUS_FALSE;
 	return stir_shaken_div_passport_validate_grants(ss, passport);
+}
+
+stir_shaken_status_t stir_shaken_div_passport_validate_dest(stir_shaken_context_t *ss, stir_shaken_passport_t *passport, const char *expected_key, const char *expected_val)
+{
+	char *dest = NULL;
+	ks_json_t *dest_json = NULL;
+	stir_shaken_status_t status = STIR_SHAKEN_STATUS_FALSE;
+
+	if (!passport || stir_shaken_zstr(expected_val)) {
+		stir_shaken_set_error(ss, "DIV PASSporT destination validation: bad params", STIR_SHAKEN_ERROR_BAD_PARAMS_1);
+		return STIR_SHAKEN_STATUS_FALSE;
+	}
+
+	dest = stir_shaken_passport_get_grants_json(ss, passport, "dest");
+	if (stir_shaken_zstr(dest)) {
+		stir_shaken_set_error(ss, "DIV PASSporT destination validation: @dest missing", STIR_SHAKEN_ERROR_PASSPORT_INVALID_DEST);
+		goto done;
+	}
+
+	dest_json = ks_json_parse(dest);
+	if (!dest_json) {
+		stir_shaken_set_error(ss, "DIV PASSporT destination validation: @dest malformed", STIR_SHAKEN_ERROR_PASSPORT_INVALID_DEST);
+		goto done;
+	}
+
+	status = stir_shaken_json_dest_contains(ss, dest_json, expected_key, expected_val);
+
+done:
+	if (dest_json) ks_json_delete(&dest_json);
+	if (dest) free(dest);
+	return status;
 }
 
 stir_shaken_status_t stir_shaken_div_validate_chain_claims(stir_shaken_context_t *ss, stir_shaken_passport_t *original, stir_shaken_passport_t *div)

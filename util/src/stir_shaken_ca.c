@@ -1265,8 +1265,15 @@ static void ca_handle_api_authority_check(struct mg_connection *nc, int event, v
 
 				ks_json_add_string_to_object(json, "authority", check_result);
 				json_str = ks_json_print_unformatted(json);
+				if (!json_str) {
+					ks_json_delete(&json);
+					stir_shaken_set_error(&ca->ss, "Cannot print JSON object", STIR_SHAKEN_ERROR_JSON);
+					goto fail;
+				}
 
 				mg_printf(nc, "HTTP/1.1 200 OK\r\nContent-Length: %lu\r\nContent-Type: application/json\r\n\r\n%s\r\n\r\n", strlen(json_str), json_str);
+				free(json_str);
+				json_str = NULL;
 
 				ks_json_delete(&json);
 				json = NULL;

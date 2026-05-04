@@ -947,6 +947,7 @@ stir_shaken_status_t stir_shaken_div_passport_validate_headers(stir_shaken_conte
 stir_shaken_status_t stir_shaken_div_passport_validate_grants(stir_shaken_context_t *ss, stir_shaken_passport_t *passport);
 stir_shaken_status_t stir_shaken_div_passport_validate_headers_and_grants(stir_shaken_context_t *ss, stir_shaken_passport_t *passport);
 stir_shaken_status_t stir_shaken_div_passport_validate(stir_shaken_context_t *ss, stir_shaken_passport_t *passport, uint32_t iat_freshness);
+stir_shaken_status_t stir_shaken_div_passport_validate_dest(stir_shaken_context_t *ss, stir_shaken_passport_t *passport, const char *expected_key, const char *expected_val);
 stir_shaken_status_t stir_shaken_div_validate_chain_claims(stir_shaken_context_t *ss, stir_shaken_passport_t *original, stir_shaken_passport_t *div);
 
 stir_shaken_status_t stir_shaken_passport_jwt_init(stir_shaken_context_t *ss, jwt_t *jwt, stir_shaken_passport_params_t *params, unsigned char *key, uint32_t keylen);
