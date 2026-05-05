@@ -44,3 +44,14 @@ Description: STIR-Shaken authentication and verification library
  as well as elements of STI-CA and STI-PA.
  .
  This package contains the static library and development headers.
+
+Package: libstirshaken-tools
+Section: utils
+Architecture: any
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+ libstirshaken1 (= ${binary:Version})
+Description: STIR-Shaken command-line tools
+ This package contains command-line tools for working with the
+ libstirshaken authentication and verification library.
