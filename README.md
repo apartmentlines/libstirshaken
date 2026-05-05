@@ -306,22 +306,22 @@ OpenSSL: https://github.com/openssl/openssl version 1.1 or later
 
 LibJWT: https://github.com/benmcollins/libjwt version 1.12 or later
 
-LibKS: https://github.com/signalwire/libks
+LibKS 2: https://github.com/signalwire/libks
 
 Signalwire Personal Access Token: https://freeswitch.org/confluence/display/FREESWITCH/HOWTO+Create+a+SignalWire+Personal+Access+Token
 
-Packages for latest libks and libjwt which are required are available in the freeswitch package repositories:
+Packages for latest libks2 and libjwt which are required are available in the freeswitch package repositories:
 
-Debian 10:
+Debian 12 and later:
 ```
 TOKEN=YOURSIGNALWIRETOKEN
-apt-get update && apt-get install -y gnupg2 wget lsb-release
-wget --http-user=signalwire --http-password=$TOKEN -O /usr/share/keyrings/signalwire-freeswitch-repo.gpg https://freeswitch.signalwire.com/repo/deb/debian-release/signalwire-freeswitch-repo.gpg
+apt-get update && apt-get install -y ca-certificates curl lsb-release
+curl --fail --silent --show-error --location --user signalwire:$TOKEN --output /usr/share/keyrings/signalwire-freeswitch-repo.gpg https://freeswitch.signalwire.com/repo/deb/debian-release/signalwire-freeswitch-repo.gpg
  
 echo "machine freeswitch.signalwire.com login signalwire password $TOKEN" > /etc/apt/auth.conf
 echo "deb [signed-by=/usr/share/keyrings/signalwire-freeswitch-repo.gpg] https://freeswitch.signalwire.com/repo/deb/debian-release/ `lsb_release -sc` main" > /etc/apt/sources.list.d/freeswitch.list
 echo "deb-src [signed-by=/usr/share/keyrings/signalwire-freeswitch-repo.gpg] https://freeswitch.signalwire.com/repo/deb/debian-release/ `lsb_release -sc` main" >> /etc/apt/sources.list.d/freeswitch.list
-apt-get update && apt-get install -y automake autoconf libtool pkg-config libcurl4-openssl-dev libjwt-dev libks
+apt-get update && apt-get install -y automake autoconf libtool pkgconf libcurl4-openssl-dev libjwt-dev libks2 libssl-dev uuid-dev
 ```
 
 Mac:
