@@ -3,11 +3,14 @@ Section: libs
 Priority: optional
 Maintainer: FreeSWITCH Solutions <packages@freeswitch.com>
 Build-Depends:
+ autoconf,
+ automake,
  debhelper-compat (= 13),
  libcurl4-openssl-dev,
  libjwt-dev (>= 1.12.0),
  libks2 (>= 2.0.0),
  libssl-dev,
+ libtool,
  pkgconf,
  uuid-dev
 Standards-Version: 4.7.4
