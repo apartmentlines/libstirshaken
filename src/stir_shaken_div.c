@@ -130,19 +130,11 @@ static stir_shaken_status_t stir_shaken_json_get_string_dup(stir_shaken_context_
 	if (!item) return STIR_SHAKEN_STATUS_FALSE;
 
 	if (ks_json_type_get(item) == KS_JSON_TYPE_STRING) {
-#if KS_VERSION_NUM >= 20000
 		ks_json_value_string(item, &value);
-#else
-		value = ks_json_value_string(item);
-#endif
 		if (stir_shaken_zstr(value)) return STIR_SHAKEN_STATUS_FALSE;
 		*out = strdup(value);
 	} else if (ks_json_type_get(item) == KS_JSON_TYPE_NUMBER) {
-#if KS_VERSION_NUM >= 20000
 		ks_json_value_number_int(item, &num);
-#else
-		num = ks_json_value_number_int(item);
-#endif
 		*out = malloc(20);
 		if (*out) snprintf(*out, 20, "%d", num);
 	} else {
@@ -222,11 +214,7 @@ static stir_shaken_status_t stir_shaken_json_validate_dest(stir_shaken_context_t
 				stir_shaken_set_error(ss, "DIV PASSporT @dest values must be strings", STIR_SHAKEN_ERROR_PASSPORT_INVALID_DEST);
 				return STIR_SHAKEN_STATUS_FALSE;
 			}
-#if KS_VERSION_NUM >= 20000
 			ks_json_value_string(item, &value);
-#else
-			value = ks_json_value_string(item);
-#endif
 			if (stir_shaken_zstr(value)) {
 				stir_shaken_set_error(ss, "DIV PASSporT @dest value is empty", STIR_SHAKEN_ERROR_PASSPORT_INVALID_DEST);
 				return STIR_SHAKEN_STATUS_FALSE;
@@ -272,11 +260,7 @@ static stir_shaken_status_t stir_shaken_json_dest_contains(stir_shaken_context_t
 		const char *value = NULL;
 
 		if (!item || ks_json_type_get(item) != KS_JSON_TYPE_STRING) continue;
-#if KS_VERSION_NUM >= 20000
 		ks_json_value_string(item, &value);
-#else
-		value = ks_json_value_string(item);
-#endif
 		if (value && !strcmp(value, expected_val)) return STIR_SHAKEN_STATUS_OK;
 	}
 
@@ -300,16 +284,8 @@ static stir_shaken_status_t stir_shaken_json_add_identity_object(stir_shaken_con
 	}
 
 	key = stir_shaken_identity_key_or_default(key);
-#if KS_VERSION_NUM >= 20000
 	ks_json_add_string_to_object(obj, key, val);
 	ks_json_add_item_to_object(parent, name, obj);
-#else
-	if (!ks_json_add_string_to_object(obj, key, val) || !ks_json_add_item_to_object(parent, name, obj)) {
-		ks_json_delete(&obj);
-		stir_shaken_set_error(ss, "Failed to add identity JSON object", STIR_SHAKEN_ERROR_KSJSON_ADD_TN);
-		return STIR_SHAKEN_STATUS_ERR;
-	}
-#endif
 
 	return STIR_SHAKEN_STATUS_OK;
 }
@@ -341,30 +317,12 @@ static stir_shaken_status_t stir_shaken_json_add_dest_object(stir_shaken_context
 			stir_shaken_set_error(ss, "Destination value missing", STIR_SHAKEN_ERROR_BAD_PARAMS_4);
 			return STIR_SHAKEN_STATUS_FALSE;
 		}
-#if KS_VERSION_NUM >= 20000
 		ks_json_add_string_to_array(arr, vals[i]);
-#else
-		if (!ks_json_add_string_to_array(arr, vals[i])) {
-			ks_json_delete(&arr);
-			ks_json_delete(&dest);
-			stir_shaken_set_error(ss, "Failed to add destination value", STIR_SHAKEN_ERROR_KSJSON_ADD_DEST_TO_ARRAY);
-			return STIR_SHAKEN_STATUS_ERR;
-		}
-#endif
 	}
 
 	key = stir_shaken_identity_key_or_default(key);
-#if KS_VERSION_NUM >= 20000
 	ks_json_add_item_to_object(dest, key, arr);
 	ks_json_add_item_to_object(parent, "dest", dest);
-#else
-	if (!ks_json_add_item_to_object(dest, key, arr) || !ks_json_add_item_to_object(parent, "dest", dest)) {
-		ks_json_delete(&arr);
-		ks_json_delete(&dest);
-		stir_shaken_set_error(ss, "Failed to build dest JSON", STIR_SHAKEN_ERROR_KSJSON_ADD_DEST_ARRAY);
-		return STIR_SHAKEN_STATUS_ERR;
-	}
-#endif
 
 	return STIR_SHAKEN_STATUS_OK;
 }
@@ -423,15 +381,7 @@ static stir_shaken_status_t stir_shaken_div_passport_jwt_init(stir_shaken_contex
 		return STIR_SHAKEN_STATUS_ERR;
 	}
 
-#if KS_VERSION_NUM >= 20000
 	ks_json_add_number_to_object(json, "iat", params->iat);
-#else
-	if (!ks_json_add_number_to_object(json, "iat", params->iat)) {
-		stir_shaken_set_error(ss, "DIV PASSporT: failed to add iat", STIR_SHAKEN_ERROR_KSJSON_ADD_IAT);
-		status = STIR_SHAKEN_STATUS_ERR;
-		goto done;
-	}
-#endif
 
 	if ((status = stir_shaken_json_add_identity_object(ss, json, "orig", params->orig_key, params->orig_val)) != STIR_SHAKEN_STATUS_OK) goto done;
 	if ((status = stir_shaken_json_add_dest_object(ss, json, params->dest_key, params->dest_vals, params->dest_vals_count)) != STIR_SHAKEN_STATUS_OK) goto done;
@@ -443,36 +393,15 @@ static stir_shaken_status_t stir_shaken_div_passport_jwt_init(stir_shaken_contex
 		goto done;
 	}
 
-#if KS_VERSION_NUM >= 20000
 	ks_json_add_string_to_object(div, stir_shaken_identity_key_or_default(params->div_key), params->div_val);
 	if (!stir_shaken_zstr(params->hi)) ks_json_add_string_to_object(div, "hi", params->hi);
 	if (!stir_shaken_zstr(params->reason)) ks_json_add_string_to_object(div, "reason", params->reason);
 	ks_json_add_item_to_object(json, "div", div);
-#else
-	if (!ks_json_add_string_to_object(div, stir_shaken_identity_key_or_default(params->div_key), params->div_val) ||
-		(!stir_shaken_zstr(params->hi) && !ks_json_add_string_to_object(div, "hi", params->hi)) ||
-		(!stir_shaken_zstr(params->reason) && !ks_json_add_string_to_object(div, "reason", params->reason)) ||
-		!ks_json_add_item_to_object(json, "div", div)) {
-		ks_json_delete(&div);
-		stir_shaken_set_error(ss, "DIV PASSporT: failed to add div claim", STIR_SHAKEN_ERROR_KSJSON_ADD_TN);
-		status = STIR_SHAKEN_STATUS_ERR;
-		goto done;
-	}
-#endif
 	div = NULL;
 
 	if (params->flags & STIR_SHAKEN_DIV_FLAG_INCLUDE_SHAKEN_CLAIMS) {
-#if KS_VERSION_NUM >= 20000
 		ks_json_add_string_to_object(json, "attest", params->attest);
 		if (!stir_shaken_zstr(params->origid)) ks_json_add_string_to_object(json, "origid", params->origid);
-#else
-		if (!ks_json_add_string_to_object(json, "attest", params->attest) ||
-			(!stir_shaken_zstr(params->origid) && !ks_json_add_string_to_object(json, "origid", params->origid))) {
-			stir_shaken_set_error(ss, "DIV PASSporT: failed to add compatibility claims", STIR_SHAKEN_ERROR_KSJSON_ADD_ATTEST);
-			status = STIR_SHAKEN_STATUS_ERR;
-			goto done;
-		}
-#endif
 	}
 
 	jstr = ks_json_print_unformatted(json);
@@ -713,11 +642,7 @@ static stir_shaken_status_t stir_shaken_extract_dest_selection(stir_shaken_conte
 			const char *value = NULL;
 
 			if (!item || ks_json_type_get(item) != KS_JSON_TYPE_STRING) continue;
-#if KS_VERSION_NUM >= 20000
 			ks_json_value_string(item, &value);
-#else
-			value = ks_json_value_string(item);
-#endif
 			if (!stir_shaken_zstr(value)) {
 				total++;
 				sole_key = keys[i];
@@ -980,11 +905,7 @@ stir_shaken_status_t stir_shaken_div_passport_validate_grants(stir_shaken_contex
 			status = STIR_SHAKEN_STATUS_FALSE;
 			goto done;
 		}
-#if KS_VERSION_NUM >= 20000
 		ks_json_value_string(reason_json, &reason);
-#else
-		reason = ks_json_value_string(reason_json);
-#endif
 		if (stir_shaken_validate_div_reason(ss, reason) != STIR_SHAKEN_STATUS_OK) {
 			status = STIR_SHAKEN_STATUS_FALSE;
 			goto done;

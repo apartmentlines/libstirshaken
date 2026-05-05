@@ -633,11 +633,7 @@ stir_shaken_status_t stir_shaken_acme_respond_to_challenge(stir_shaken_context_t
         goto fail;
     }
 
-#if KS_VERSION_NUM >= 20000
     ks_json_value_string(auth_status, &auth_status_value);
-#else
-    auth_status_value = ks_json_value_string(auth_status);
-#endif
     if (strcmp("valid", auth_status_value) == 0) {
         // Authorization completed
 
@@ -693,11 +689,7 @@ stir_shaken_status_t stir_shaken_acme_respond_to_challenge(stir_shaken_context_t
             goto fail;
         }
 
-#if KS_VERSION_NUM >= 20000
         ks_json_value_string(url_item, &challenge_url);
-#else
-        challenge_url = ks_json_value_string(url_item);
-#endif
         if (polling_url) {
             *polling_url = strdup(challenge_url);
         }
@@ -820,12 +812,8 @@ stir_shaken_status_t stir_shaken_acme_poll(stir_shaken_context_t *ss, void *data
 
         // Check authorization status
         // If status is "valid" authorization is completed and can proceed to cert acquisition
-#if KS_VERSION_NUM >= 20000
         ks_json_value_string(auth_status, &auth_status_value);
 
-#else
-        auth_status_value = ks_json_value_string(auth_status);
-#endif
         if (strcmp("valid", auth_status_value) == 0) {
             // Authorization completed
             status_is_valid = 1;
@@ -938,11 +926,7 @@ stir_shaken_status_t stir_shaken_acme_perform_authorization(stir_shaken_context_
     fprintif(STIR_SHAKEN_LOGLEVEL_MEDIUM, "-> Processing authorization challenge...\n");
 
     // If status is "valid" authorization is completed and can proceed to cert acquisition
-#if KS_VERSION_NUM >= 20000
     ks_json_value_string(auth_status, &auth_status_value);
-#else
-    auth_status_value = ks_json_value_string(auth_status);
-#endif
     if (strcmp("valid", auth_status_value) == 0) {
         // Authorization completed
         fprintif(STIR_SHAKEN_LOGLEVEL_MEDIUM, "-> Authorization completed\n");
@@ -986,11 +970,7 @@ stir_shaken_status_t stir_shaken_acme_perform_authorization(stir_shaken_context_
             goto fail;
         }
 
-#if KS_VERSION_NUM >= 20000
         ks_json_value_string(auth_item, &auth_url);
-#else
-        auth_url = ks_json_value_string(auth_item);
-#endif
 
         /*
          * Performing Step 4 of 6.3.5.2 ACME Based Steps for Application for an STI Certificate [ATIS-1000080].

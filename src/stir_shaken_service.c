@@ -408,11 +408,7 @@ stir_shaken_status_t stir_shaken_vs_verify_stica(stir_shaken_context_t *ss, stir
 		if (ks_json_type_get(iterator) == KS_JSON_TYPE_STRING) {
 			const char *valuestring = "";
 
-#if KS_VERSION_NUM >= 20000
 			ks_json_value_string(iterator, &valuestring);
-#else
-			valuestring = ks_json_value_string(iterator);
-#endif
 			// TODO remove
 			fprintif(STIR_SHAKEN_LOGLEVEL_HIGH, "%s\n", valuestring);
 
@@ -471,11 +467,7 @@ stir_shaken_status_t stir_shaken_make_authority_over_number_check_req(stir_shake
 		goto fail;
 	}
 
-#if KS_VERSION_NUM >= 20000
 	ks_json_value_string(authority_check_result, &authority_check_result_value);
-#else
-	authority_check_result_value = ks_json_value_string(authority_check_result);
-#endif
 	if (strcmp("true", authority_check_result_value) == 0) {
 		result = STIR_SHAKEN_STATUS_OK;
 	} else {
