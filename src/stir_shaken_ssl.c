@@ -434,7 +434,7 @@ X509_REQ* stir_shaken_generate_x509_req(stir_shaken_context_t *ss, const char *s
         goto fail;
     }
 
-    if (!X509_REQ_set_version(req, 2L)) {
+    if (!X509_REQ_set_version(req, 0L)) {
         stir_shaken_set_error(ss, "Failed to set version on CSR", STIR_SHAKEN_ERROR_X509_REQ_SET_VERSION);
         goto fail;
     }
