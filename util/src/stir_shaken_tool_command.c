@@ -909,7 +909,6 @@ stir_shaken_status_t stirshaken_command_execute(stir_shaken_context_t *ss, int c
 				const char *selected_dest_key = NULL;
 				const char *selected_dest_val = NULL;
 				stir_shaken_div_passport_params_t div_params = { 0 };
-				uint32_t flags = 0;
 
 				fprintif(STIR_SHAKEN_LOGLEVEL_BASIC, "Loading key...\n");
 				options->keys.priv_raw_len = STIR_SHAKEN_PRIV_KEY_RAW_BUF_LEN;
@@ -922,12 +921,8 @@ stir_shaken_status_t stirshaken_command_execute(stir_shaken_context_t *ss, int c
 					selected_dest_key = "tn";
 					selected_dest_val = options->divtn;
 				}
-				if (options->with_shaken_claims) {
-					flags |= STIR_SHAKEN_DIV_FLAG_INCLUDE_SHAKEN_CLAIMS;
-				}
-
 				fprintif(STIR_SHAKEN_LOGLEVEL_BASIC, "Assigning parameters to DIV PASSporT...\n");
-				status = stir_shaken_div_params_from_original_sih(ss, options->sih, options->url, "tn", dest_vals, 1, selected_dest_key, selected_dest_val, flags, &div_params);
+				status = stir_shaken_div_params_from_original_sih(ss, options->sih, options->url, "tn", dest_vals, 1, selected_dest_key, selected_dest_val, &div_params);
 				if (STIR_SHAKEN_STATUS_OK != status) {
 					stir_shaken_div_passport_params_destroy(&div_params);
 					goto fail;

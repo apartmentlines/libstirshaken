@@ -115,7 +115,6 @@ status = stir_shaken_div_params_from_original_sih(
 	1,
 	NULL,
 	NULL,
-	0,
 	&div_params);
 ```
 
@@ -403,7 +402,7 @@ Where command is one of:
 		 sp-spc-req --url URL --port port
 		 sp-cert-req --url URL --port port --privkey key --pubkey key --csr csr.pem --spc CODE --spc_token SPC_TOKEN -f CERT_NAME
 		 passport-create --privkey key --url x5u_URL --attest attestation_level --origtn origtn --desttn desttn --origid origid -f passport_file_name
-		 div-passport-create --privkey key --url x5u_URL --sih shaken_sih --desttn desttn [--divtn divtn] [--reason reason] [--hi hi] [--with-shaken-claims] -f passport_file_name
+		 div-passport-create --privkey key --url x5u_URL --sih shaken_sih --desttn desttn [--divtn divtn] [--reason reason] [--hi hi] -f passport_file_name
 		 div-chain-check --sih shaken_sih --div_sih div_sih [--cert_path_check --ca_dir ca_dir] [--timeout timeout_in_seconds]
 		 version
 

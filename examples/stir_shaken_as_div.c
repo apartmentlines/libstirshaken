@@ -33,7 +33,6 @@ int main(void)
 			1,
 			NULL,
 			NULL,
-			0,
 			&div_params)) {
 		goto done;
 	}

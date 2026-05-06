@@ -58,8 +58,6 @@ extern "C" {
 #define STIR_SHAKEN_PPT_SHAKEN "shaken"
 #define STIR_SHAKEN_PPT_DIV "div"
 
-#define STIR_SHAKEN_DIV_FLAG_INCLUDE_SHAKEN_CLAIMS 0x01
-
 #define STIR_SHAKEN_MOCK_VERIFY_CERT_CHAIN 0
 #define STIR_SHAKEN_LOAD_CA_FROM_DEFAULT_OS_PATHS 0
 #define STIR_SHAKEN_CERT_ADD_SIGNALWIRE_EXTENSION 1
@@ -884,9 +882,6 @@ typedef struct stir_shaken_div_passport_params_s {
 	uint32_t iat;
 	const char *hi;
 	const char *reason;
-	const char *attest;
-	const char *origid;
-	uint32_t flags;
 } stir_shaken_div_passport_params_t;
 
 typedef struct stir_shaken_parsed_identity_s {
@@ -942,7 +937,7 @@ stir_shaken_status_t stir_shaken_passport_decode_noverify(stir_shaken_context_t 
 stir_shaken_passport_t *stir_shaken_div_passport_create(stir_shaken_context_t *ss, stir_shaken_div_passport_params_t *params, unsigned char *key, uint32_t keylen);
 stir_shaken_status_t stir_shaken_div_authenticate_keep_passport(stir_shaken_context_t *ss, char **sih, stir_shaken_div_passport_params_t *params, unsigned char *key, uint32_t keylen, stir_shaken_passport_t **passport_out);
 stir_shaken_status_t stir_shaken_div_authenticate(stir_shaken_context_t *ss, char **sih, stir_shaken_div_passport_params_t *params, unsigned char *key, uint32_t keylen);
-stir_shaken_status_t stir_shaken_div_params_from_original_sih(stir_shaken_context_t *ss, const char *original_sih, const char *div_x5u, const char *new_dest_key, const char **new_dest_vals, uint32_t new_dest_vals_count, const char *selected_original_dest_key, const char *selected_original_dest_val, uint32_t flags, stir_shaken_div_passport_params_t *out);
+stir_shaken_status_t stir_shaken_div_params_from_original_sih(stir_shaken_context_t *ss, const char *original_sih, const char *div_x5u, const char *new_dest_key, const char **new_dest_vals, uint32_t new_dest_vals_count, const char *selected_original_dest_key, const char *selected_original_dest_val, stir_shaken_div_passport_params_t *out);
 stir_shaken_status_t stir_shaken_div_passport_validate_headers(stir_shaken_context_t *ss, stir_shaken_passport_t *passport);
 stir_shaken_status_t stir_shaken_div_passport_validate_grants(stir_shaken_context_t *ss, stir_shaken_passport_t *passport);
 stir_shaken_status_t stir_shaken_div_passport_validate_headers_and_grants(stir_shaken_context_t *ss, stir_shaken_passport_t *passport);

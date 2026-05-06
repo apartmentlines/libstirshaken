@@ -20,16 +20,6 @@ static stir_shaken_status_t stir_shaken_validate_identity_key(stir_shaken_contex
 	return STIR_SHAKEN_STATUS_FALSE;
 }
 
-static stir_shaken_status_t stir_shaken_validate_attest(stir_shaken_context_t *ss, const char *attest)
-{
-	if (!attest || !((*attest == 'A' || *attest == 'B' || *attest == 'C') && attest[1] == '\0')) {
-		stir_shaken_set_error(ss, "DIV PASSporT @attest must be 'A', 'B' or 'C'", STIR_SHAKEN_ERROR_PASSPORT_ATTEST_VALUE);
-		return STIR_SHAKEN_STATUS_FALSE;
-	}
-
-	return STIR_SHAKEN_STATUS_OK;
-}
-
 static int stir_shaken_is_sip_token_char(char c)
 {
 	return (c >= 'A' && c <= 'Z') ||
@@ -355,10 +345,6 @@ static stir_shaken_status_t stir_shaken_div_passport_jwt_init(stir_shaken_contex
 		return STIR_SHAKEN_STATUS_FALSE;
 	}
 
-	if ((params->flags & STIR_SHAKEN_DIV_FLAG_INCLUDE_SHAKEN_CLAIMS) && stir_shaken_validate_attest(ss, params->attest) != STIR_SHAKEN_STATUS_OK) {
-		return STIR_SHAKEN_STATUS_FALSE;
-	}
-
 	if (!stir_shaken_zstr(params->reason) && stir_shaken_validate_div_reason(ss, params->reason) != STIR_SHAKEN_STATUS_OK) {
 		return STIR_SHAKEN_STATUS_FALSE;
 	}
@@ -399,11 +385,6 @@ static stir_shaken_status_t stir_shaken_div_passport_jwt_init(stir_shaken_contex
 	ks_json_add_item_to_object(json, "div", div);
 	div = NULL;
 
-	if (params->flags & STIR_SHAKEN_DIV_FLAG_INCLUDE_SHAKEN_CLAIMS) {
-		ks_json_add_string_to_object(json, "attest", params->attest);
-		if (!stir_shaken_zstr(params->origid)) ks_json_add_string_to_object(json, "origid", params->origid);
-	}
-
 	jstr = ks_json_print_unformatted(json);
 	if (!jstr) {
 		stir_shaken_set_error(ss, "DIV PASSporT: failed to print payload JSON", STIR_SHAKEN_ERROR_PASSPORT_JWT_PRINT_JSON);
@@ -441,8 +422,6 @@ void stir_shaken_div_passport_params_destroy(stir_shaken_div_passport_params_t *
 	free((char *) params->div_val);
 	free((char *) params->hi);
 	free((char *) params->reason);
-	free((char *) params->attest);
-	free((char *) params->origid);
 	memset(params, 0, sizeof(*params));
 }
 
@@ -687,7 +666,7 @@ static stir_shaken_status_t stir_shaken_extract_dest_selection(stir_shaken_conte
 	return STIR_SHAKEN_STATUS_FALSE;
 }
 
-stir_shaken_status_t stir_shaken_div_params_from_original_sih(stir_shaken_context_t *ss, const char *original_sih, const char *div_x5u, const char *new_dest_key, const char **new_dest_vals, uint32_t new_dest_vals_count, const char *selected_original_dest_key, const char *selected_original_dest_val, uint32_t flags, stir_shaken_div_passport_params_t *out)
+stir_shaken_status_t stir_shaken_div_params_from_original_sih(stir_shaken_context_t *ss, const char *original_sih, const char *div_x5u, const char *new_dest_key, const char **new_dest_vals, uint32_t new_dest_vals_count, const char *selected_original_dest_key, const char *selected_original_dest_val, stir_shaken_div_passport_params_t *out)
 {
 	stir_shaken_parsed_identity_t parsed = { 0 };
 	stir_shaken_passport_t *passport = NULL;
@@ -734,7 +713,6 @@ stir_shaken_status_t stir_shaken_div_params_from_original_sih(stir_shaken_contex
 	out->dest_vals = calloc(new_dest_vals_count, sizeof(*out->dest_vals));
 	out->dest_vals_count = new_dest_vals_count;
 	out->iat = (uint32_t) stir_shaken_passport_get_grant_int(ss, passport, "iat");
-	out->flags = flags;
 	if (!out->x5u || !out->dest_key || !out->dest_vals || !out->iat) {
 		stir_shaken_set_error(ss, "DIV params from SIH: required value missing", STIR_SHAKEN_ERROR_BAD_PARAMS_10);
 		status = STIR_SHAKEN_STATUS_FALSE;
@@ -760,23 +738,6 @@ stir_shaken_status_t stir_shaken_div_params_from_original_sih(stir_shaken_contex
 
 	status = stir_shaken_extract_dest_selection(ss, dest, selected_original_dest_key, selected_original_dest_val, (char **) &out->div_key, (char **) &out->div_val);
 	if (status != STIR_SHAKEN_STATUS_OK) goto fail_out;
-
-	if (flags & STIR_SHAKEN_DIV_FLAG_INCLUDE_SHAKEN_CLAIMS) {
-		const char *attest = stir_shaken_passport_get_grant(ss, passport, "attest");
-		const char *origid = stir_shaken_passport_get_grant(ss, passport, "origid");
-
-		if (stir_shaken_validate_attest(ss, attest) != STIR_SHAKEN_STATUS_OK) {
-			status = STIR_SHAKEN_STATUS_FALSE;
-			goto fail_out;
-		}
-		out->attest = strdup(attest);
-		if (!stir_shaken_zstr(origid)) out->origid = strdup(origid);
-		if (!out->attest || (!stir_shaken_zstr(origid) && !out->origid)) {
-			stir_shaken_set_error(ss, "Out of memory", STIR_SHAKEN_ERROR_MEM_ID);
-			status = STIR_SHAKEN_STATUS_TERM;
-			goto fail_out;
-		}
-	}
 
 	status = STIR_SHAKEN_STATUS_OK;
 	goto done;
@@ -992,8 +953,6 @@ stir_shaken_status_t stir_shaken_div_validate_chain_claims(stir_shaken_context_t
 	char *div_val = NULL;
 	char *selected_key = NULL;
 	char *selected_val = NULL;
-	const char *origid = NULL;
-	const char *div_origid = NULL;
 	stir_shaken_status_t status = STIR_SHAKEN_STATUS_FALSE;
 
 	if (!original || !div) return STIR_SHAKEN_STATUS_TERM;
@@ -1032,15 +991,6 @@ stir_shaken_status_t stir_shaken_div_validate_chain_claims(stir_shaken_context_t
 	if (stir_shaken_extract_dest_selection(ss, orig_dest_json, div_key, div_val, &selected_key, &selected_val) != STIR_SHAKEN_STATUS_OK) {
 		stir_shaken_set_error(ss, "DIV chain Invalid. @div destination is not in original @dest", STIR_SHAKEN_ERROR_PASSPORT_INVALID_DEST);
 		goto done;
-	}
-
-	div_origid = stir_shaken_passport_get_grant(ss, div, "origid");
-	if (!stir_shaken_zstr(div_origid)) {
-		origid = stir_shaken_passport_get_grant(ss, original, "origid");
-		if (stir_shaken_zstr(origid) || strcmp(origid, div_origid)) {
-			stir_shaken_set_error(ss, "DIV chain Invalid. @origid mismatch", STIR_SHAKEN_ERROR_PASSPORT_INVALID_ORIGID);
-			goto done;
-		}
 	}
 
 	status = STIR_SHAKEN_STATUS_OK;

@@ -85,8 +85,7 @@
 #define OPTION_DIVTN		36
 #define OPTION_REASON		37
 #define OPTION_HI			38
-#define OPTION_WITH_SHAKEN_CLAIMS	39
-#define OPTION_MAX			40
+#define OPTION_MAX			39
 
 #define OPTION_NAME_PUBKEY		"pubkey"
 #define OPTION_NAME_PRIVKEY		"privkey"
@@ -129,7 +128,6 @@
 #define OPTION_NAME_DIVTN		"divtn"
 #define OPTION_NAME_REASON		"reason"
 #define OPTION_NAME_HI			"hi"
-#define OPTION_NAME_WITH_SHAKEN_CLAIMS	"with-shaken-claims"
 
 #define STIR_SHAKEN_TOOL_SIH_BUFLEN 8192
 
@@ -251,7 +249,6 @@ static struct options {
 	stir_shaken_passport_params_t passport_params;
 	unsigned long connect_timeout_s;
 	uint8_t x509_cert_path_check;
-	uint8_t with_shaken_claims;
 } options;
 
 void stirshaken_range_error(char arg, unsigned long val);

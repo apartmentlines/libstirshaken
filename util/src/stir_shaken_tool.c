@@ -22,7 +22,7 @@ static void stirshaken_usage(const char *name)
 	fprintf(stderr, "\t\t %s --%s URL --%s port\n", COMMAND_NAME_SP_SPC_REQ, OPTION_NAME_URL, OPTION_NAME_PORT);
 	fprintf(stderr, "\t\t %s --%s URL --%s port --%s key --%s key --%s csr.pem --%s CODE --%s SPC_TOKEN -f CERT_NAME\n", COMMAND_NAME_SP_CERT_REQ, OPTION_NAME_URL, OPTION_NAME_PORT, OPTION_NAME_PRIVKEY, OPTION_NAME_PUBKEY, OPTION_NAME_CSR, OPTION_NAME_SPC, OPTION_NAME_SPC_TOKEN);
 	fprintf(stderr, "\t\t %s --%s key --%s x5u_URL --%s attestation_level --%s origtn --%s desttn --%s origid -f passport_file_name\n", COMMAND_NAME_PASSPORT_CREATE, OPTION_NAME_PRIVKEY, OPTION_NAME_URL, OPTION_NAME_ATTEST, OPTION_NAME_ORIGTN, OPTION_NAME_DESTTN, OPTION_NAME_ORIGID);
-	fprintf(stderr, "\t\t %s --%s key --%s x5u_URL --%s shaken_sih --%s desttn [--%s divtn] [--%s reason] [--%s hi] [--%s] -f passport_file_name\n", COMMAND_NAME_DIV_PASSPORT_CREATE, OPTION_NAME_PRIVKEY, OPTION_NAME_URL, OPTION_NAME_SIH, OPTION_NAME_DESTTN, OPTION_NAME_DIVTN, OPTION_NAME_REASON, OPTION_NAME_HI, OPTION_NAME_WITH_SHAKEN_CLAIMS);
+	fprintf(stderr, "\t\t %s --%s key --%s x5u_URL --%s shaken_sih --%s desttn [--%s divtn] [--%s reason] [--%s hi] -f passport_file_name\n", COMMAND_NAME_DIV_PASSPORT_CREATE, OPTION_NAME_PRIVKEY, OPTION_NAME_URL, OPTION_NAME_SIH, OPTION_NAME_DESTTN, OPTION_NAME_DIVTN, OPTION_NAME_REASON, OPTION_NAME_HI);
 	fprintf(stderr, "\t\t %s --%s shaken_sih --%s div_sih [--%s --%s ca_dir] [--%s timeout_in_seconds]\n", COMMAND_NAME_DIV_CHAIN_CHECK, OPTION_NAME_SIH, OPTION_NAME_DIV_SIH, OPTION_NAME_X509_CERT_PATH_CHECK, OPTION_NAME_CA_DIR, OPTION_NAME_CONNECT_TIMEOUT);
 	fprintf(stderr, "\t\t %s\n", COMMAND_NAME_VERSION);
 	fprintf(stderr, "\n");
@@ -118,7 +118,6 @@ int main(int argc, char *argv[])
 		{ OPTION_NAME_DIVTN, required_argument, 0, OPTION_DIVTN },
 		{ OPTION_NAME_REASON, required_argument, 0, OPTION_REASON },
 		{ OPTION_NAME_HI, required_argument, 0, OPTION_HI },
-		{ OPTION_NAME_WITH_SHAKEN_CLAIMS, no_argument, 0, OPTION_WITH_SHAKEN_CLAIMS },
 		{ 0 }
 	};
 
@@ -379,11 +378,6 @@ int main(int argc, char *argv[])
 				STIR_SHAKEN_CHECK_OPTARG
 				strncpy(options.hi, optarg, STIR_SHAKEN_BUFLEN);
 				fprintf(stderr, "DIV hi is: %s\n", options.hi);
-				break;
-
-			case OPTION_WITH_SHAKEN_CLAIMS:
-				options.with_shaken_claims = 1;
-				fprintf(stderr, "Including SHAKEN compatibility claims in DIV PASSporT\n");
 				break;
 
 			case OPTION_V:
