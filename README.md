@@ -12,6 +12,10 @@ You can find a comprehensive list of specs relevant to Shaken at the bottom of t
 This library provides building blocks for implementing STIR-Shaken authentication and verification services, (STI-SP/AS, STI-SP/VS),
 as well as elements of STI-CA and STI-PA. DIV PASSporT support covers the common single-diversion case, `SHAKEN -> DIV`, for authentication and verification. Multi-layered diversion chains such as `SHAKEN -> DIV -> DIV` are not supported.
 
+## Releasing
+
+See [RELEASING.md](RELEASING.md) for the release process.
+
 ## Interoperability
 
 libstirshaken was tested for interoperability with other leading Shaken implementations (e.g. TransNexus).

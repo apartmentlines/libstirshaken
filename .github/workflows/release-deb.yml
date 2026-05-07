@@ -23,6 +23,29 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Verify release version metadata
+        run: |
+          set -euo pipefail
+
+          version="${GITHUB_REF_NAME#v}"
+          package_version="$(build/version.sh)"
+          changelog_version="$(sed -n '1s/^.*(\([^)]*\)).*$/\1/p' debian/changelog)"
+
+          if [[ ! "$version" =~ ^[0-9]+[.][0-9]+[.][0-9]+$ ]]; then
+            echo "Release tag must use plain semver with a leading v: $GITHUB_REF_NAME"
+            exit 1
+          fi
+
+          if [ "$package_version" != "$version" ]; then
+            echo "VERSION/build version $package_version does not match tag version $version."
+            exit 1
+          fi
+
+          if [ "$changelog_version" != "$version-1" ]; then
+            echo "Debian changelog version $changelog_version does not match expected version $version-1."
+            exit 1
+          fi
+
       - name: Verify tag is reachable from div-passport-port
         run: |
           set -euo pipefail

@@ -1,24 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly SEMVER_PATTERN='^[vV]?[0-9]+[.][0-9]+[.][0-9]+(-[0-9A-Za-z.-]+)?([+][0-9A-Za-z.-]+)?$'
+readonly VERSION_FILE="VERSION"
+readonly SEMVER_PATTERN='^[0-9]+[.][0-9]+[.][0-9]+$'
 
-latest_semver_tag() {
-  { git tag --list 2>/dev/null || true; } | awk -v pattern="${SEMVER_PATTERN}" '$0 ~ pattern { sub(/^[vV]/, "", $0); print }' | sort -V | tail -n 1
+repo_root() {
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  cd "${script_dir}/.." && pwd
 }
 
-current_revision() {
-  git rev-parse HEAD
+version() {
+  local root
+  local version
+  root="$(repo_root)"
+  version="$(<"${root}/${VERSION_FILE}")"
+  if [[ ! "${version}" =~ ${SEMVER_PATTERN} ]]; then
+    printf 'Invalid %s value: %s\n' "${VERSION_FILE}" "${version}" >&2
+    return 1
+  fi
+  printf '%s\n' "${version}"
 }
 
 main() {
-  local version
-  version="$(latest_semver_tag)"
-  if [ -n "${version}" ]; then
-    printf '%s\n' "${version}"
-    return 0
-  fi
-  current_revision
+  version
 }
 
 main "$@"
