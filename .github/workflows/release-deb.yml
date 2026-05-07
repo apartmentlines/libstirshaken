@@ -153,9 +153,21 @@ jobs:
 
           mkdir -p "dist/${{ matrix.debian.name }}"
 
-          find .. -maxdepth 1 -type f \
-            \( -name "*.deb" -o -name "*.changes" -o -name "*.buildinfo" \) \
-            -exec cp -v {} "dist/${{ matrix.debian.name }}/" \;
+          while IFS= read -r -d '' artifact; do
+            filename="${artifact##*/}"
+            extension="${filename##*.}"
+            stem="${filename%.*}"
+            arch="${stem##*_}"
+            prefix="${stem%_*}"
+
+            cp -v \
+              "$artifact" \
+              "dist/${{ matrix.debian.name }}/${prefix}_${{ matrix.debian.name }}_${arch}.${extension}"
+          done < <(
+            find .. -maxdepth 1 -type f \
+              \( -name "*.deb" -o -name "*.changes" -o -name "*.buildinfo" \) \
+              -print0
+          )
 
           ls -lh "dist/${{ matrix.debian.name }}"
 
